@@ -3,6 +3,12 @@ import GoogleProvider from 'next-auth/providers/google'
 import AppleProvider from 'next-auth/providers/apple'
 import { SupabaseAdapter } from '@auth/supabase-adapter'
 
+// Autorisierte Familienmitglieder
+const AUTHORIZED_EMAILS = [
+  'chr.bernecker@gmail.com',
+  'amandabernecker@gmail.com'
+];
+
 // Prüfe ob alle erforderlichen Environment-Variablen vorhanden sind
 const requiredEnvVars = {
   NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
@@ -38,6 +44,16 @@ export const authOptions: NextAuthOptions = {
   ],
   adapter: createAdapter(),
   callbacks: {
+    async signIn({ user, account, profile }) {
+      // Nur autorisierte E-Mail-Adressen zulassen
+      if (user.email && AUTHORIZED_EMAILS.includes(user.email.toLowerCase())) {
+        return true;
+      }
+      
+      // Nicht autorisierte Benutzer abweisen
+      console.log(`Unauthorized login attempt from: ${user.email}`);
+      return false;
+    },
     async session({ session, token }) {
       // Add user ID to session
       if (token?.sub && session.user) {
