@@ -2,6 +2,12 @@
 
 Eine hochmoderne, AI-gestützte Web-Toolbox für die Familie mit modularer Plugin-Architektur, Multi-Agent-System und nahtloser Integration bestehender Tools.
 
+## 🌐 **Live-App & Repository**
+
+- **🚀 Live-App**: https://family-toolbox.netlify.app/ ✅
+- **📁 GitHub**: https://github.com/christianbernecker/family-toolbox ✅
+- **🔄 Auto-Deploy**: Aktiviert bei GitHub Push
+
 ## 🚀 Features
 
 ### 🔧 Bauplan Checker
