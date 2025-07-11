@@ -1,36 +1,165 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Family Toolbox
 
-## Getting Started
+Eine hochmoderne, AI-gestützte Web-Toolbox für die Familie mit modularer Plugin-Architektur, Multi-Agent-System und nahtloser Integration bestehender Tools.
 
-First, run the development server:
+## 🚀 Features
 
+### 🔧 Bauplan Checker
+- PDF-Bauplan-Validation gegen DIN-Normen
+- RAG-System (Retrieval-Augmented Generation) für präzise Compliance-Prüfung
+- Automatische Erkennung und Analyse von Bauplänen
+- Detaillierte Compliance-Berichte mit Handlungsempfehlungen
+
+### 🤖 Multi-Agent System
+- Framework für Background-Agents
+- E-Mail-Monitoring und Content-Zusammenfassung
+- Intelligente Benachrichtigungen
+- Zeitgesteuerte Automatisierung mit Cron-Jobs
+
+### 📊 JSON Explorer
+- JSON Validation und Formatting
+- VAST Support für komplexe Datenstrukturen
+- Diff-Vergleich und Schema-Validation
+- Monaco Editor Integration
+
+## 🛠️ Tech Stack
+
+- **Frontend**: Next.js 15, React 19, TypeScript
+- **Styling**: Tailwind CSS v4, Radix UI
+- **Backend**: Supabase, PostgreSQL
+- **Authentication**: NextAuth.js mit Google/Apple OAuth
+- **AI**: OpenAI GPT-4, Anthropic Claude, RAG mit Embeddings
+- **Tools**: PDF Processing, BullMQ für Jobs, Redis
+
+## 📋 Voraussetzungen
+
+- Node.js 18+
+- npm oder yarn
+- PostgreSQL Datenbank (oder Supabase Account)
+- Redis Server (für BullMQ)
+- API Keys für:
+  - OpenAI
+  - Anthropic (optional)
+  - Google OAuth
+  - Apple OAuth (optional)
+
+## 🚀 Installation
+
+1. Repository klonen:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/yourusername/family-toolbox.git
+cd family-toolbox
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Dependencies installieren:
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Netlify CLI installieren (für Deployments):
+```bash
+npm install -g netlify-cli
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. Umgebungsvariablen konfigurieren:
+```bash
+cp .env.example .env.local
+```
 
-## Learn More
+5. `.env.local` mit Ihren Werten ausfüllen:
+```env
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
-To learn more about Next.js, take a look at the following resources:
+# NextAuth
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=your-secret-here
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# OAuth
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# AI Services
+OPENAI_API_KEY=your-openai-api-key
 
-## Deploy on Vercel
+# Redis
+REDIS_URL=redis://localhost:6379
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+6. Datenbank initialisieren:
+```bash
+npm run db:migrate
+npm run db:seed
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+7. Entwicklungsserver starten:
+```bash
+npm run dev
+```
+
+Die Anwendung ist nun unter `http://localhost:3000` verfügbar.
+
+## 🚀 Deployment
+
+### Stage Deployment:
+```bash
+npm run deploy:stage
+```
+
+### Production Deployment:
+```bash
+npm run deploy:production
+```
+
+**URLs:**
+- Stage: https://stage--family-toolbox.netlify.app
+- Production: https://family-toolbox.netlify.app ✅ (Live-App)
+
+## 📁 Projektstruktur
+
+```
+family-toolbox/
+├── src/
+│   ├── app/              # Next.js App Router
+│   ├── components/       # React Komponenten
+│   ├── lib/              # Utilities und Business Logic
+│   │   ├── auth/         # Authentication
+│   │   ├── supabase/     # Supabase Client
+│   │   ├── ai/           # AI Integration
+│   │   ├── tools/        # Tool-spezifische Logic
+│   │   └── utils/        # Hilfsfunktionen
+│   ├── styles/           # Globale Styles
+│   └── workers/          # Background Workers
+├── public/               # Statische Assets
+├── docs/                 # Dokumentation
+└── scripts/              # Build und Deploy Scripts
+```
+
+## 🎨 Design System
+
+Die Anwendung verwendet ein rot-basiertes Farbschema mit:
+- Primary: Rot-Gradient (#ef4444 → #b91c1c)
+- Secondary: Orange-Töne
+- Dark Mode Unterstützung
+- Moderne UI mit Animationen
+
+## 🔒 Sicherheit
+
+- Row Level Security (RLS) in Supabase
+- OAuth 2.0 Authentication
+- Verschlüsselte Datenspeicherung
+- Rate Limiting für API Endpoints
+
+## 📝 Lizenz
+
+MIT License - siehe LICENSE Datei für Details.
+
+## 🤝 Contributing
+
+Beiträge sind willkommen! Bitte erstellen Sie einen Pull Request mit einer detaillierten Beschreibung Ihrer Änderungen.
+
+## 📞 Support
+
+Bei Fragen oder Problemen erstellen Sie bitte ein Issue auf GitHub.
