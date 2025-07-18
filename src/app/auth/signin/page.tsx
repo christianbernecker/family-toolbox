@@ -24,7 +24,6 @@ export default async function SignInPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <SignInButton provider="google" className="w-full" />
-          <SignInButton provider="apple" className="w-full" />
           
           <div className="text-center text-sm text-gray-600 mt-6">
             Nur für berechtigte Familienmitglieder

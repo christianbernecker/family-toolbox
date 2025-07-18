@@ -2,17 +2,46 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { FileCheck, Bot, ArrowRight, Settings } from "lucide-react";
+import { FileCheck, Bot, ArrowRight, Settings, Mail } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { ToolManagementService, Tool } from "@/lib/services/tool-management";
+import Image from 'next/image';
 
 // Icon mapping
 const iconMap = {
   FileCheck: FileCheck,
   Bot: Bot,
+  Mail: Mail,
 };
+
+// User Greeting Component
+function UserGreeting({ user }: { user: { name?: string | null; image?: string | null } }) {
+  if (!user) return null;
+
+  return (
+    <div className="flex items-center space-x-4 mb-8 p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
+      {user.image && (
+        <Image
+          src={user.image}
+          alt={user.name || 'Profilbild'}
+          width={56}
+          height={56}
+          className="rounded-full"
+        />
+      )}
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+          Willkommen zurück, {user.name?.split(' ')[0] || 'Nutzer'}!
+        </h2>
+        <p className="text-gray-600 dark:text-gray-300">
+          Wähle ein Tool, um zu starten.
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export default function ToolsPage() {
   const { data: session, status } = useSession();
@@ -57,9 +86,14 @@ export default function ToolsPage() {
         <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/80 backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900/80">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex h-16 items-center justify-between">
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                Tools
-              </h1>
+              <Link href="/" className="flex items-center space-x-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-red-500 to-red-700">
+                  <Settings className="h-5 w-5 text-white" />
+                </div>
+                <span className="text-xl font-bold bg-gradient-to-r from-red-500 to-red-700 bg-clip-text text-transparent">
+                  Family Toolbox
+                </span>
+              </Link>
             </div>
           </div>
         </header>
@@ -82,20 +116,20 @@ export default function ToolsPage() {
       <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/80 backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900/80">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-              Tools
-            </h1>
+            <Link href="/" className="flex items-center space-x-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-red-500 to-red-700">
+                <Settings className="h-5 w-5 text-white" />
+              </div>
+              <span className="text-xl font-bold bg-gradient-to-r from-red-500 to-red-700 bg-clip-text text-transparent">
+                Family Toolbox
+              </span>
+            </Link>
             <div className="flex items-center space-x-4">
-              {isAdmin && (
-                <Link href="/admin/tools">
-                  <Button variant="outline" size="sm">
-                    <Settings className="h-4 w-4 mr-2" />
-                    Tool-Verwaltung
-                  </Button>
-                </Link>
-              )}
-              <Link href="/dashboard">
-                <Button variant="outline">Dashboard</Button>
+              <Link href="/admin">
+                <Button variant="ghost" size="sm">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Einstellungen
+                </Button>
               </Link>
             </div>
           </div>
@@ -104,6 +138,10 @@ export default function ToolsPage() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        
+        {/* User Greeting */}
+        {session?.user && <UserGreeting user={session.user} />}
+        
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
             Verfügbare Tools
@@ -133,17 +171,8 @@ export default function ToolsPage() {
               Keine Tools verfügbar
             </h3>
             <p className="text-gray-600 dark:text-gray-300 mb-6 max-w-md mx-auto">
-              Derzeit sind keine Tools aktiviert. 
-              {isAdmin && ' Als Administrator können Sie Tools in der Tool-Verwaltung aktivieren.'}
+              Derzeit sind keine Tools aktiviert.
             </p>
-            {isAdmin && (
-              <Link href="/admin/tools">
-                <Button className="bg-gradient-to-r from-red-500 to-red-700">
-                  <Settings className="mr-2 h-4 w-4" />
-                  Tool-Verwaltung öffnen
-                </Button>
-              </Link>
-            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">

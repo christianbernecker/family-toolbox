@@ -1,0 +1,120 @@
+graph TB
+    subgraph "E-Mail Sources"
+        Gmail["chr.bernecker@gmail.com<br/>📧 Gmail IMAP"]
+        Ionos1["finanzen@wuermchen.org<br/>📧 IONOS IMAP"]
+        Ionos2["vorstand@wuermchen.org<br/>📧 IONOS IMAP"]
+        HighPrio["amandabernecker@gmail.com<br/>⭐ Höchste Priorität"]
+    end
+
+    subgraph "Agent 1: Mail Manager"
+        Scheduler["🕐 Cron Scheduler<br/>(alle 30min)"]
+        MailFetcher["📥 IMAP Client<br/>Supabase Edge Function"]
+        Deduplicator["🔍 Duplikat-Erkennung"]
+        MailStorage["💾 E-Mail Speicherung"]
+    end
+
+    subgraph "Agent 2: Summary Generator"
+        RelevanceEvaluator["🎯 Relevanz-Bewertung<br/>Claude Haiku"]
+        Categorizer["📂 Kategorisierung<br/>(personal/system/marketing)"]
+        PriorityWeighter["⚖️ Prioritäts-Gewichtung"]
+        SummaryGenerator["📋 Zusammenfassungs-Generator<br/>Claude Sonnet"]
+    end
+
+    subgraph "Agent 3: Learning Optimizer"
+        FeedbackCollector["📝 Feedback-Sammlung<br/>(1-6 Rating + Text)"]
+        RelevanceLearning["🎓 Relevanz-Learning<br/>(1-10 Bewertung)"]
+        PromptOptimizer["🔧 Prompt-Optimierer<br/>Ollama Local LLM"]
+        ABTester["🧪 A/B Testing<br/>Prompt-Versionen"]
+    end
+
+    subgraph "Data Layer - Supabase"
+        EmailAccounts[("📮 email_accounts<br/>Credentials & Prioritäten")]
+        Emails[("📧 emails<br/>Inhalte & Scores")]
+        Summaries[("📊 daily_summaries<br/>Zusammenfassungen")]
+        Feedback[("💬 feedback<br/>Bewertungen & Learning")]
+        SenderPriorities[("👤 sender_priorities<br/>Absender-Gewichtung")]
+        PromptVersions[("📝 prompt_versions<br/>Prompt-Evolution")]
+    end
+
+    subgraph "Frontend - React/Netlify"
+        Dashboard["📱 Dashboard<br/>Zusammenfassungen anzeigen"]
+        FeedbackUI["⭐ Feedback-Interface<br/>Bewertungen abgeben"]
+        LearningUI["🎓 Learning-Interface<br/>Relevanz bewerten"]
+        ConfigUI["⚙️ Konfiguration<br/>Prioritäten setzen"]
+        RealtimeUpdates["🔄 Real-time Updates<br/>Supabase Subscriptions"]
+    end
+
+    subgraph "External APIs"
+        ClaudeAPI["🤖 Claude API<br/>Haiku + Sonnet"]
+        OllamaAPI["🧠 Ollama<br/>Local LLM"]
+    end
+
+    %% Mail Flow
+    Gmail --> MailFetcher
+    Ionos1 --> MailFetcher
+    Ionos2 --> MailFetcher
+    HighPrio -.->|"Höchste Priorität"| PriorityWeighter
+
+    %% Agent 1 Flow
+    Scheduler -->|"Trigger alle 30min"| MailFetcher
+    MailFetcher --> Deduplicator
+    Deduplicator --> MailStorage
+    MailStorage --> Emails
+
+    %% Agent 2 Flow
+    Emails -->|"Neue E-Mails"| RelevanceEvaluator
+    RelevanceEvaluator --> ClaudeAPI
+    ClaudeAPI --> Categorizer
+    Categorizer --> PriorityWeighter
+    SenderPriorities --> PriorityWeighter
+    PriorityWeighter --> SummaryGenerator
+    SummaryGenerator --> ClaudeAPI
+    SummaryGenerator --> Summaries
+
+    %% Agent 3 Flow
+    Dashboard --> FeedbackCollector
+    FeedbackCollector --> Feedback
+    LearningUI --> RelevanceLearning
+    RelevanceLearning --> Feedback
+    Feedback --> PromptOptimizer
+    PromptOptimizer --> OllamaAPI
+    PromptOptimizer --> ABTester
+    ABTester --> PromptVersions
+    PromptVersions -.->|"Verbesserte Prompts"| RelevanceEvaluator
+    PromptVersions -.->|"Verbesserte Prompts"| SummaryGenerator
+
+    %% Frontend Interactions
+    Summaries --> Dashboard
+    Dashboard --> FeedbackUI
+    Emails --> LearningUI
+    EmailAccounts --> ConfigUI
+    SenderPriorities --> ConfigUI
+
+    %% Real-time Updates
+    Emails -.->|"Real-time"| RealtimeUpdates
+    Summaries -.->|"Real-time"| RealtimeUpdates
+    RealtimeUpdates -.-> Dashboard
+
+    %% Data Relationships
+    EmailAccounts --> Emails
+    Emails --> Summaries
+    Summaries --> Feedback
+
+    %% Styling
+    classDef agent fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef database fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef frontend fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef external fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef email fill:#ffebee,stroke:#c62828,stroke-width:2px
+
+    class Scheduler,MailFetcher,Deduplicator,MailStorage agent
+    class RelevanceEvaluator,Categorizer,PriorityWeighter,SummaryGenerator agent
+    class FeedbackCollector,RelevanceLearning,PromptOptimizer,ABTester agent
+
+    class EmailAccounts,Emails,Summaries,Feedback,SenderPriorities,PromptVersions database
+
+    class Dashboard,FeedbackUI,LearningUI,ConfigUI,RealtimeUpdates frontend
+
+    class ClaudeAPI,OllamaAPI external
+
+    class Gmail,Ionos1,Ionos2,HighPrio email

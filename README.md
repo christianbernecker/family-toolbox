@@ -1,6 +1,31 @@
 # Family Toolbox
 
-Eine hochmoderne, AI-gestützte Web-Toolbox für die Familie mit modularer Plugin-Architektur, Multi-Agent-System und nahtloser Integration bestehender Tools.
+Willkommen zur Family Toolbox, einer privaten AI-gesteuerten Webanwendung.
+
+## Tech Stack
+
+- Next.js 14
+- NextAuth.js v4
+- Tailwind CSS
+- Shadcn UI
+- Netlify
+
+## Deployment
+
+Die Anwendung wird auf Netlify gehostet. Es gibt zwei Hauptumgebungen:
+
+- **Stage**: `stage--family-toolbox.netlify.app`
+- **Production**: `family-toolbox.netlify.app`
+
+### Wichtige Konfigurationsdetails
+
+Das korrekte Deployment auf Netlify, insbesondere für verschiedene Umgebungen (Kontexte), erfordert eine spezielle Konfiguration in der `netlify.toml` und in den Build-Skripten.
+
+- **Build-Kontexte**: Der korrekte Build-Kontext (`staging` oder `production`) muss explizit übergeben werden, um sicherzustellen, dass die richtigen Umgebungsvariablen (z.B. `NEXTAUTH_URL`) geladen werden.
+- **Stage-Deploy**: Erfolgt über `npm run deploy:stage`.
+- **Produktions-Deploy**: Erfolgt über `npm run deploy:prod`.
+
+Weitere Details sind in der `Deployment.md` dokumentiert.
 
 ## 🌐 **Live-App & Repository**
 
@@ -21,6 +46,12 @@ Eine hochmoderne, AI-gestützte Web-Toolbox für die Familie mit modularer Plugi
 - E-Mail-Monitoring und Content-Zusammenfassung
 - Intelligente Benachrichtigungen
 - Zeitgesteuerte Automatisierung mit Cron-Jobs
+
+#### 📧 E-Mail Agent Tool
+- **Live-URL**: https://family-toolbox.netlify.app/tools/email-agent
+- **Setup-Anleitung**: [docs/email-agent-setup-guide.md](docs/email-agent-setup-guide.md)
+- **Quick-Start**: [docs/email-agent-quickstart.md](docs/email-agent-quickstart.md)
+- **Features**: IMAP-E-Mail-Abruf, AI-Zusammenfassungen, Feedback-Optimierung
 
 ### 📊 JSON Explorer
 - JSON Validation und Formatting
@@ -109,19 +140,40 @@ Die Anwendung ist nun unter `http://localhost:3000` verfügbar.
 
 ## 🚀 Deployment
 
-### Stage Deployment:
+### 🎯 Empfohlen: Dual Deployment (Staging + Production)
+```bash
+# Automatisches Deployment auf beide URLs
+./scripts/deploy-both.sh
+```
+
+### Alternative: Einzelne Deployments
+
+#### Stage Deployment:
 ```bash
 npm run deploy:stage
 ```
 
-### Production Deployment:
+#### Production Deployment:
 ```bash
-npm run deploy:production
+npm run deploy:prod
+```
+
+#### Beide auf einmal:
+```bash
+npm run deploy:both
 ```
 
 **URLs:**
 - Stage: https://stage--family-toolbox.netlify.app
 - Production: https://family-toolbox.netlify.app ✅ (Live-App)
+
+### Tool-spezifische Deployments
+
+#### E-Mail Agent Tool:
+```bash
+./scripts/deploy-email-agent.sh
+```
+Deployt automatisch beide URLs für das E-Mail Agent Tool.
 
 ## 📁 Projektstruktur
 
@@ -151,12 +203,49 @@ Die Anwendung verwendet ein rot-basiertes Farbschema mit:
 - Dark Mode Unterstützung
 - Moderne UI mit Animationen
 
+## 📊 Logging System
+
+Die Anwendung verfügt über ein umfassendes strukturiertes Logging-System:
+
+### Supabase Logs Tabelle
+```sql
+CREATE TABLE logs (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  level TEXT NOT NULL, -- 'DEBUG', 'INFO', 'WARN', 'ERROR'
+  source TEXT NOT NULL, -- z.B. 'api/settings/api-keys'
+  message TEXT NOT NULL,
+  user_id TEXT,
+  payload JSONB,
+  session_id TEXT
+);
+```
+
+### LogService Features
+- ✅ **Zentrale Logging-Klasse** (`LogService`)
+- ✅ **Strukturierte Logs** mit Level, Source, Message, Payload
+- ✅ **User-Context** - automatische User-ID Zuordnung
+- ✅ **Session-Tracking** für Request-Verfolgung
+- ✅ **Frontend-Integration** über `/api/log` Route
+- ✅ **Server-Side Logging** in allen API-Routen
+
+### Erforderliche Umgebungsvariablen
+- `SUPABASE_SERVICE_ROLE_KEY` - Admin-Zugriff für Log-Schreibung
+- `NEXT_PUBLIC_SUPABASE_URL` - Supabase-Projekt URL
+
+### Verwendung
+```typescript
+const logger = LogService.getInstance();
+await logger.info('source', 'message', { data: 'payload' }, userId);
+```
+
 ## 🔒 Sicherheit
 
 - Row Level Security (RLS) in Supabase
 - OAuth 2.0 Authentication
-- Verschlüsselte Datenspeicherung
+- Verschlüsselte Datenspeicherung (AES)
 - Rate Limiting für API Endpoints
+- Umfassendes Audit-Logging
 
 ## 📝 Lizenz
 

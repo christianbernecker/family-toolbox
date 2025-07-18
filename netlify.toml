@@ -1,57 +1,19 @@
 [build]
-  command = "npm run build"
+  command = "echo '>>> Building with Netlify context:' $CONTEXT && npm run build"
   publish = ".next"
-
-[build.environment]
-  NODE_VERSION = "18"
-  NPM_VERSION = "9"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-[dev]
-  command = "npm run dev"
-  port = 3000
+# Production-Kontext (wird für die Haupt-URL family-toolbox.netlify.app als STAGE verwendet)
+[context.production]
+  command = "echo '>>> Building with Netlify context:' $CONTEXT && npm run build"
+  
+  [context.production.environment]
+    NEXTAUTH_URL = "https://family-toolbox.netlify.app"
 
-# Redirects für Next.js App Router
-[[redirects]]
-  from = "/_next/static/*"
-  to = "/_next/static/:splat"
-  status = 200
-
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/___netlify-handler"
-  status = 200
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
-[functions]
-  node_bundler = "esbuild"
-
-[context.production.environment]
-  NEXT_PUBLIC_STAGE = "production"
-
-[context.branch-deploy.environment]
-  NEXT_PUBLIC_STAGE = "staging"
-
-[context.deploy-preview.environment]
-  NEXT_PUBLIC_STAGE = "preview"
-
-# Next.js specific settings
-[build.processing]
-  skip_processing = false
-
-[build.processing.css]
-  bundle = true
-  minify = true
-
-[build.processing.js]
-  bundle = true
-  minify = true
-
-[build.processing.html]
-  pretty_urls = true 
+# Platzhalter für den zukünftigen Live-Kontext (family-toolbox.de)
+[context.future-production]
+  # command = "npm run build"
+  # [context.future-production.environment]
+  #   NEXTAUTH_URL = "https://family-toolbox.de" 

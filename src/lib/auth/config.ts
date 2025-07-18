@@ -1,7 +1,6 @@
 import { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
-import AppleProvider from 'next-auth/providers/apple'
-import { SupabaseAdapter } from '@auth/supabase-adapter'
+import { v5 as uuidv5 } from 'uuid'
 
 // Autorisierte Familienmitglieder
 const AUTHORIZED_EMAILS = [
@@ -9,73 +8,97 @@ const AUTHORIZED_EMAILS = [
   'amandabernecker@gmail.com'
 ];
 
-// Prüfe ob alle erforderlichen Environment-Variablen vorhanden sind
-const requiredEnvVars = {
-  NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
-  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
-  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
-  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
-}
+// Fester Namespace für deterministische UUID-Generierung
+const UUID_NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
 
-// Erstelle nur Supabase-Adapter wenn alle Variablen vorhanden sind
-const createAdapter = () => {
-  if (requiredEnvVars.NEXT_PUBLIC_SUPABASE_URL && requiredEnvVars.SUPABASE_SERVICE_ROLE_KEY) {
-    return SupabaseAdapter({
-      url: requiredEnvVars.NEXT_PUBLIC_SUPABASE_URL,
-      secret: requiredEnvVars.SUPABASE_SERVICE_ROLE_KEY,
-    })
+function getBaseUrl() {
+  if (process.env.NEXTAUTH_URL) {
+    return process.env.NEXTAUTH_URL;
   }
-  return undefined
+  
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  
+  // Netlify-spezifische URL-Erkennung
+  if (process.env.URL) {
+    return process.env.URL;
+  }
+  
+  return 'http://localhost:3000';
 }
 
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
-      clientId: requiredEnvVars.GOOGLE_CLIENT_ID || 'dummy',
-      clientSecret: requiredEnvVars.GOOGLE_CLIENT_SECRET || 'dummy',
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
-         ...(process.env.APPLE_CLIENT_ID && process.env.APPLE_CLIENT_SECRET ? [
-      AppleProvider({
-        clientId: process.env.APPLE_CLIENT_ID,
-        clientSecret: process.env.APPLE_CLIENT_SECRET,
-      })
-    ] : []),
   ],
-  adapter: createAdapter(),
-  callbacks: {
-    async signIn({ user, account, profile }) {
-      // Nur autorisierte E-Mail-Adressen zulassen
-      if (user.email && AUTHORIZED_EMAILS.includes(user.email.toLowerCase())) {
-        return true;
-      }
-      
-      // Nicht autorisierte Benutzer abweisen
-      console.log(`Unauthorized login attempt from: ${user.email}`);
-      return false;
-    },
-    async session({ session, token }) {
-      // Add user ID to session
-      if (token?.sub && session.user) {
-        session.user.id = token.sub
-      }
-      return session
-    },
-    async jwt({ token, user, account }) {
-      // Store user ID in token
-      if (user) {
-        token.sub = user.id
-      }
-      return token
-    },
-  },
   session: {
     strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+  jwt: {
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+  // Netlify-spezifische Konfiguration
+  useSecureCookies: process.env.NODE_ENV === 'production',
+  callbacks: {
+    async signIn({ user, account, profile }) {
+      console.log('NextAuth signIn callback triggered');
+      if (!profile?.email) {
+        console.error('No profile email found');
+        throw new Error('No profile email found');
+      }
+      
+      if (AUTHORIZED_EMAILS.includes(profile.email)) {
+        console.log('User authorized:', profile.email);
+        // Deterministische UUID aus Google-ID generieren (bleibt immer gleich für denselben User)
+        const googleId = (profile as any).sub || (profile as any).id || profile.email;
+        const deterministicUuid = uuidv5(googleId, UUID_NAMESPACE);
+        console.log('Generated UUID for user:', { googleId, uuid: deterministicUuid });
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        user.id = deterministicUuid;
+        return true;
+      } else {
+        console.log('User not authorized:', profile.email);
+        return '/auth/unauthorized';
+      }
+    },
+    async jwt({ token, user, account }) {
+      console.log('NextAuth JWT callback triggered');
+      if (user && user.id) {
+        token.sub = user.id;
+      }
+      // Fallback: falls keine ID vorhanden ist, verwende die E-Mail als eindeutigen Identifier
+      if (!token.sub && token.email) {
+        token.sub = token.email;
+      }
+      return token;
+    },
+    async redirect({ url, baseUrl }) {
+      console.log('NextAuth redirect callback:', { url, baseUrl });
+      
+      // Für Netlify: Verwende NEXTAUTH_URL falls gesetzt, sonst baseUrl
+      const redirectUrl = process.env.NEXTAUTH_URL || baseUrl;
+      console.log('NextAuth redirect to:', redirectUrl);
+      
+      return redirectUrl;
+    },
+    async session({ session, token }) {
+      console.log('NextAuth session callback triggered');
+      if (token?.sub) {
+        session.user.id = token.sub;
+      }
+      return session;
+    },
   },
   pages: {
     signIn: '/auth/signin',
     error: '/auth/error',
   },
-  secret: requiredEnvVars.NEXTAUTH_SECRET || 'dev-secret-key',
   debug: process.env.NODE_ENV === 'development',
-} 
+  secret: process.env.NEXTAUTH_SECRET,
+}; 

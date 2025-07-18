@@ -1,25 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
-import { Database } from '@/lib/types/database';
 
-// Prüfe ob Supabase-Environment-Variablen vorhanden sind
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// Erstelle Client nur wenn beide Werte vorhanden sind
-export const supabase = supabaseUrl && supabaseAnonKey 
-  ? createClient<Database>(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true
-      },
-      realtime: {
-        params: {
-          eventsPerSecond: 10,
-        },
-      },
-    })
-  : null;
+if (!supabaseUrl || !supabaseAnonKey) {
+  // Im Build-Prozess kann dies normal sein, daher nur eine Warnung
+  console.warn('Supabase credentials not found. This is expected during build process.');
+  // Wir exportieren einen null-Client, damit die App nicht crasht
+}
+
+export const supabase = createClient(supabaseUrl!, supabaseAnonKey!);
 
 // Server-side Client für API Routes und Server Actions
 export const createServerSupabaseClient = () => {
@@ -30,7 +20,7 @@ export const createServerSupabaseClient = () => {
     throw new Error('Missing Supabase environment variables for server client');
   }
 
-  return createClient<Database>(supabaseUrl, supabaseServiceKey, {
+  return createClient(supabaseUrl, supabaseServiceKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,

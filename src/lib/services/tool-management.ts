@@ -183,4 +183,21 @@ export class ToolManagementService {
       return [];
     }
   }
+
+  async toggleToolStatus(toolId: string, isActive: boolean): Promise<void> {
+    const result = await fetch('/api/admin/tools/toggle', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        toolId,
+        isActive,
+      }),
+    });
+
+    if (!result.ok) {
+      throw new Error('Fehler beim Aktualisieren des Tool-Status');
+    }
+  }
 } 

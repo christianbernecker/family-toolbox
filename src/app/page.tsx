@@ -107,48 +107,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {/* Features Preview */}
-      <section className="relative py-16">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Was Sie erwartet
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400">
-              Leistungsstarke Tools für Ihre Familie
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 max-w-3xl mx-auto">
-            {/* Feature 1 */}
-            <div className="rounded-xl border border-gray-200 bg-white/50 backdrop-blur-sm p-6 dark:border-gray-700 dark:bg-gray-800/50 hover:bg-white/80 dark:hover:bg-gray-800/80 transition-all duration-200">
-              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900/30">
-                <Wrench className="h-5 w-5 text-red-600 dark:text-red-400" />
-              </div>
-              <h3 className="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
-                Bauplan Checker
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                PDF-Bauplan-Validation gegen DIN-Normen mit AI-gestützter Compliance-Prüfung.
-              </p>
-            </div>
-
-            {/* Feature 2 */}
-            <div className="rounded-xl border border-gray-200 bg-white/50 backdrop-blur-sm p-6 dark:border-gray-700 dark:bg-gray-800/50 hover:bg-white/80 dark:hover:bg-gray-800/80 transition-all duration-200">
-              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900/30">
-                <Users className="h-5 w-5 text-red-600 dark:text-red-400" />
-              </div>
-              <h3 className="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
-                Multi-Agent System
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                Intelligente Background-Agents für automatisierte Familienorganisation.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
     </main>
   );
 }
