@@ -10,6 +10,11 @@ interface TableHeaderProps {
   className?: string;
 }
 
+interface TableBodyProps {
+  children: React.ReactNode;
+  className?: string;
+}
+
 interface TableRowProps {
   children: React.ReactNode;
   className?: string;
@@ -35,6 +40,17 @@ export const TableHeader: React.FC<TableHeaderProps> = ({ children, className = 
     <thead className={`bg-gray-50 ${className}`}>
       {children}
     </thead>
+  );
+};
+
+// Alias für TableHeader (TableHead)
+export const TableHead: React.FC<TableHeaderProps> = TableHeader;
+
+export const TableBody: React.FC<TableBodyProps> = ({ children, className = '' }) => {
+  return (
+    <tbody className={`bg-white divide-y divide-gray-200 ${className}`}>
+      {children}
+    </tbody>
   );
 };
 
