@@ -1,0 +1,177 @@
+graph TB
+    subgraph "Target Websites"
+        WebsiteA["🌐 News-Website<br/>example-news.com"]
+        WebsiteB["🏢 Firmen-Website<br/>company.com"]
+        WebsiteC["💰 Preis-Website<br/>pricing.com"]
+        WebsiteD["📋 Job-Portal<br/>jobs.com"]
+        WebsiteMore["... bis zu 50 URLs"]
+    end
+
+    subgraph "Agent 1: Observer"
+        Scheduler["⏰ Cron Scheduler<br/>(stündlich)"]
+        Scraper["🕷️ Web Scraper<br/>Playwright + Supabase Edge"]
+        ContentExtractor["📄 Content Extractor<br/>Text + Metadata"]
+        ChangeDetector["🔍 Change Detector<br/>Content Hash Comparison"]
+        DataCleaner["🧹 Data Lifecycle<br/>90-Tage Cleanup"]
+    end
+
+    subgraph "Agent 2: Änderungs-Checker"
+        DiffGenerator["📊 Diff Generator<br/>Text-basierte Unterschiede"]
+        LLMAnalyzer["🤖 LLM Analyzer<br/>GPT-4o-mini + Claude Backup"]
+        RelevanceScorer["🎯 Relevance Scorer<br/>1-10 Bewertung"]
+        CategoryClassifier["📂 Category Classifier<br/>high/medium/low/irrelevant"]
+        ConfidenceCalculator["📈 Confidence Calculator<br/>0.0-1.0 Score"]
+    end
+
+    subgraph "Agent 3: Notifier"
+        NotificationFilter["🔽 Notification Filter<br/>Relevanz >= 6"]
+        EmailGenerator["📧 Email Generator<br/>HTML Templates + Diff"]
+        PushSender["📱 Push Sender<br/>Browser Notifications"]
+        DeliveryTracker["📋 Delivery Tracker<br/>Success/Retry Logic"]
+        ChannelRouter["🚀 Channel Router<br/>Email + Push"]
+    end
+
+    subgraph "Agent 4: Optimizer"
+        FeedbackCollector["📝 Feedback Collector<br/>User Ratings 1-5"]
+        PatternAnalyzer["🔍 Pattern Analyzer<br/>Common Issues Detection"]
+        PromptOptimizer["🔧 Prompt Optimizer<br/>Automated Improvements"]
+        ABTester["🧪 A/B Tester<br/>Prompt Performance"]
+        MetricsTracker["📊 Metrics Tracker<br/>Accuracy & Satisfaction"]
+    end
+
+    subgraph "Data Layer - Supabase Extended"
+        WatchedURLs[("🌐 watched_urls<br/>URLs + Instructions")]
+        URLSnapshots[("📸 url_snapshots<br/>Content History")]
+        ContentChanges[("🔄 content_changes<br/>Detected Changes + AI Analysis")]
+        Notifications[("🔔 notifications<br/>Delivery Status")]
+        ChangeFeedback[("💬 change_feedback<br/>User Learning Data")]
+        PromptTemplates[("📝 prompt_templates<br/>AI Prompt Evolution")]
+        URLTags[("🏷️ url_tags<br/>Organization")]
+        PushSubscriptions[("📱 push_subscriptions<br/>Browser Push Data")]
+        SystemMetrics[("📊 system_metrics<br/>Performance KPIs")]
+    end
+
+    subgraph "Frontend Extensions"
+        URLDashboard["📱 URL Dashboard<br/>Management Interface"]
+        ChangeViewer["👁️ Change Viewer<br/>Diff Visualization"]
+        FeedbackUI["⭐ Feedback Interface<br/>Relevance Rating"]
+        SettingsPanel["⚙️ Settings Panel<br/>Notifications + URLs"]
+        TagManager["🏷️ Tag Manager<br/>Organization"]
+        RTUpdates["🔄 Real-time Updates<br/>Live Change Feed"]
+    end
+
+    subgraph "External APIs & Services"
+        GPTApi["🤖 OpenAI GPT-4o-mini<br/>Primary LLM"]
+        ClaudeApi["🧠 Claude Haiku<br/>Backup LLM"]
+        SMTPService["📬 SMTP Service<br/>Email Delivery"]
+        VapidService["🔑 VAPID Service<br/>Push Notifications"]
+    end
+
+    subgraph "Integration with Email Tool"
+        SharedAuth["👤 Shared Authentication<br/>User Management"]
+        UnifiedDash["📊 Unified Dashboard<br/>Combined Insights"]
+        CrossLearning["🎓 Cross-Tool Learning<br/>Shared AI Improvements"]
+        SharedNotif["🔔 Shared Notifications<br/>Combined Channels"]
+    end
+
+    %% Agent 1 Flow (Observer)
+    Scheduler -->|"Trigger hourly"| Scraper
+    WebsiteA --> Scraper
+    WebsiteB --> Scraper
+    WebsiteC --> Scraper
+    WebsiteD --> Scraper
+    WebsiteMore --> Scraper
+    
+    Scraper --> ContentExtractor
+    ContentExtractor --> ChangeDetector
+    ChangeDetector --> WatchedURLs
+    ChangeDetector --> URLSnapshots
+    ChangeDetector -->|"Changes detected"| ContentChanges
+    DataCleaner --> URLSnapshots
+
+    %% Agent 2 Flow (Änderungs-Checker)
+    ContentChanges -->|"New changes"| DiffGenerator
+    DiffGenerator --> LLMAnalyzer
+    LLMAnalyzer --> GPTApi
+    GPTApi -->|"Backup"| ClaudeApi
+    LLMAnalyzer --> RelevanceScorer
+    RelevanceScorer --> CategoryClassifier
+    CategoryClassifier --> ConfidenceCalculator
+    ConfidenceCalculator --> ContentChanges
+
+    %% Agent 3 Flow (Notifier)
+    ContentChanges -->|"Relevant changes"| NotificationFilter
+    NotificationFilter --> ChannelRouter
+    ChannelRouter --> EmailGenerator
+    ChannelRouter --> PushSender
+    EmailGenerator --> SMTPService
+    PushSender --> VapidService
+    PushSender --> PushSubscriptions
+    DeliveryTracker --> Notifications
+    
+    %% Agent 4 Flow (Optimizer)
+    FeedbackUI --> FeedbackCollector
+    FeedbackCollector --> ChangeFeedback
+    ChangeFeedback --> PatternAnalyzer
+    PatternAnalyzer --> PromptOptimizer
+    PromptOptimizer --> ABTester
+    ABTester --> PromptTemplates
+    PromptTemplates -.->|"Improved prompts"| LLMAnalyzer
+    MetricsTracker --> SystemMetrics
+
+    %% Frontend Interactions
+    WatchedURLs --> URLDashboard
+    ContentChanges --> ChangeViewer
+    ContentChanges --> FeedbackUI
+    URLTags --> TagManager
+    WatchedURLs --> SettingsPanel
+    
+    %% Real-time Updates
+    ContentChanges -.->|"Real-time"| RTUpdates
+    URLSnapshots -.->|"Real-time"| RTUpdates
+    Notifications -.->|"Real-time"| RTUpdates
+
+    %% Integration Points
+    SharedAuth -.-> URLDashboard
+    UnifiedDash -.-> URLDashboard
+    UnifiedDash -.-> ChangeViewer
+    CrossLearning -.-> PromptOptimizer
+    SharedNotif -.-> ChannelRouter
+
+    %% Data Relationships
+    WatchedURLs --> URLSnapshots
+    URLSnapshots --> ContentChanges
+    ContentChanges --> Notifications
+    ContentChanges --> ChangeFeedback
+    WatchedURLs --> URLTags
+
+    %% Performance Monitoring
+    SystemMetrics -.->|"Health Check"| Scheduler
+    SystemMetrics -.->|"Error Tracking"| LLMAnalyzer
+    SystemMetrics -.->|"Delivery Stats"| DeliveryTracker
+
+    %% Styling
+    classDef agent1 fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef agent2 fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef agent3 fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    classDef agent4 fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef database fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    classDef frontend fill:#f1f8e9,stroke:#689f38,stroke-width:2px
+    classDef external fill:#fff8e1,stroke:#ffa000,stroke-width:2px
+    classDef integration fill:#f3e5f5,stroke:#8e24aa,stroke-width:2px
+    classDef websites fill:#ffebee,stroke:#d32f2f,stroke-width:2px
+
+    class Scheduler,Scraper,ContentExtractor,ChangeDetector,DataCleaner agent1
+    class DiffGenerator,LLMAnalyzer,RelevanceScorer,CategoryClassifier,ConfidenceCalculator agent2
+    class NotificationFilter,EmailGenerator,PushSender,DeliveryTracker,ChannelRouter agent3
+    class FeedbackCollector,PatternAnalyzer,PromptOptimizer,ABTester,MetricsTracker agent4
+
+    class WatchedURLs,URLSnapshots,ContentChanges,Notifications,ChangeFeedback,PromptTemplates,URLTags,PushSubscriptions,SystemMetrics database
+
+    class URLDashboard,ChangeViewer,FeedbackUI,SettingsPanel,TagManager,RTUpdates frontend
+
+    class GPTApi,ClaudeApi,SMTPService,VapidService external
+
+    class SharedAuth,UnifiedDash,CrossLearning,SharedNotif integration
+
+    class WebsiteA,WebsiteB,WebsiteC,WebsiteD,WebsiteMore websites

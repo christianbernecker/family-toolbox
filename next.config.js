@@ -11,12 +11,21 @@ const nextConfig = {
     ],
   },
   typescript: {
-    // Temporär für Staging - ignoriere TypeScript-Fehler
+    // Temporär für Build - ignoriere TypeScript-Fehler
     ignoreBuildErrors: true,
   },
   eslint: {
-    // Temporär für Staging - ignoriere ESLint-Fehler
+    // Temporär für Build - ignoriere ESLint-Fehler  
     ignoreDuringBuilds: true,
+  },
+  experimental: {
+    serverComponentsExternalPackages: ['@anthropic-ai/sdk'],
+  },
+  // Deaktiviere Static Generation komplett
+  output: 'standalone',
+  trailingSlash: false,
+  generateBuildId: async () => {
+    return 'build-' + Date.now();
   },
   serverRuntimeConfig: {
     SUPABASE_URL: process.env.SUPABASE_URL,
