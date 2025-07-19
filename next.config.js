@@ -29,7 +29,7 @@ const nextConfig = {
     return 'build-' + Date.now();
   },
   // Override the default export mode
-  output: 'standalone',
+  // output: 'standalone',
   // Force dynamic rendering
   async headers() {
     return [

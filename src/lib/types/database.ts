@@ -448,7 +448,7 @@ export interface AuditLogUpdate {
 }
 
 // Utility Types
-export type ToolId = 'bauplan-checker' | 'multi-agent-system'
+export type ToolId = 'bauplan-checker' | 'multi-agent-system' | 'url-watcher'
 export type AgentType = 'email-monitor' | 'content-summarizer' | 'document-processor'
 
 // Add after existing types

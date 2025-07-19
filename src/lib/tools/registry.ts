@@ -1,7 +1,7 @@
 // Tool Registry System für Family Toolbox
 // Zentrale Definition aller verfügbaren Tools
 
-import { LucideIcon, FileCheck, Bot, Settings, BarChart3 } from 'lucide-react';
+import { LucideIcon, FileCheck, Bot, Settings, BarChart3, Globe } from 'lucide-react';
 import type { ToolId } from '@/lib/types/database';
 
 export interface ToolDefinition {
@@ -48,6 +48,44 @@ export const AVAILABLE_TOOLS: ToolDefinition[] = [
       'Empfehlungen zur Verbesserung'
     ],
     dependencies: ['openai-api'],
+    minUserRole: 'user',
+    status: 'beta'
+  },
+  {
+    id: 'url-watcher',
+    name: 'URL Watcher',
+    description: 'Intelligente Website-Überwachung mit KI-basierter Relevanz-Bewertung',
+    longDescription: 'Überwacht bis zu 50 URLs auf relevante inhaltliche Änderungen und benachrichtigt automatisch via E-Mail und Browser-Push. 4-Agent-Architektur mit Observer, Änderungs-Checker, Notifier und Optimizer für kontinuierliches Lernen.',
+    icon: Globe,
+    category: 'automation',
+    version: '1.0.0',
+    requiresConfig: true,
+    defaultSettings: {
+      monitoring_enabled: true,
+      default_interval: 60,
+      max_urls: 50,
+      notifications: {
+        email: true,
+        push: true,
+        frequency: 'immediate'
+      },
+      relevance_threshold: 6,
+      data_retention_days: 90,
+      learning_enabled: true
+    },
+    features: [
+      'Multi-URL Überwachung (bis zu 50 URLs)',
+      'KI-basierte Relevanz-Bewertung mit GPT-4o-mini',
+      'Intelligente Content-Extraktion mit Playwright',
+      'E-Mail & Browser-Push Benachrichtigungen',
+      'Tag-System für URL-Organisation',
+      'Kontinuierliches Lernen durch User-Feedback',
+      'A/B-Testing von LLM-Prompts',
+      '4-Agent-Architektur (Observer, Checker, Notifier, Optimizer)',
+      'Dashboard mit Änderungs-Historie',
+      'Diff-Visualisierung und Change-Details'
+    ],
+    dependencies: ['openai-api', 'claude-api'],
     minUserRole: 'user',
     status: 'beta'
   },
