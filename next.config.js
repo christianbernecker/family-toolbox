@@ -20,30 +20,23 @@ const nextConfig = {
   },
   experimental: {
     serverComponentsExternalPackages: ['@anthropic-ai/sdk'],
-    // Force all pages to be dynamic - no static generation
-    forceSwcTransforms: true,
+    // Force runtime compiling instead of build-time
+    esmExternals: 'loose',
   },
-  // Disable Static Generation and use Server-Side Rendering
+  // Force all pages to be ISR instead of SSG
+  async generateStaticParams() {
+    return [];
+  },
   trailingSlash: false,
   generateBuildId: async () => {
     return 'build-' + Date.now();
   },
-  // Override the default export mode
-  // output: 'standalone',
-  // Force dynamic rendering
-  async headers() {
-    return [
-      {
-        source: '/(.*)',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'no-cache, no-store, must-revalidate',
-          },
-        ],
-      },
-    ];
+  // Configure runtime to handle errors gracefully
+  onDemandEntries: {
+    maxInactiveAge: 25 * 1000,
+    pagesBufferLength: 2,
   },
+  swcMinify: true,
   serverRuntimeConfig: {
     SUPABASE_URL: process.env.SUPABASE_URL,
     SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,

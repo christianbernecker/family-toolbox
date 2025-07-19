@@ -3,110 +3,142 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Wrench, Users, Lock } from "lucide-react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
+import { useSession, SessionProvider } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
-export default function Home() {
+function HomeContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
 
-  // Redirect authenticated users to tools page
   useEffect(() => {
-    if (session) {
-      router.push('/tools');
-    }
-  }, [session, router]);
+    setMounted(true);
+  }, []);
 
-  // Show loading state while checking auth
-  if (status === 'loading') {
+  useEffect(() => {
+    if (mounted && status === "authenticated" && session) {
+      router.push("/dashboard");
+    }
+  }, [session, status, router, mounted]);
+
+  if (!mounted || status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 via-white to-orange-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500"></div>
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 dark:from-gray-900 dark:to-gray-800">
+        <div className="container mx-auto px-4 py-16 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading...</p>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-red-50 via-white to-orange-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-40">
-          <div className="absolute inset-0" style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ef4444' fill-opacity='0.05'%3E%3Cpath d='m36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
-          }}></div>
-        </div>
-        
-        <div className="relative container mx-auto px-4 py-20 sm:px-6 lg:px-8">
-          <div className="text-center">
-            {/* Logo */}
-            <div className="mb-8 flex justify-center">
-              <div className="relative">
-                <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-r from-red-500 to-red-700 shadow-2xl shadow-red-500/25">
-                  <Wrench className="h-12 w-12 text-white" />
-                </div>
-                <div className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-gradient-to-r from-orange-400 to-red-500 flex items-center justify-center">
-                  <Users className="h-3 w-3 text-white" />
-                </div>
-              </div>
-            </div>
-
-            {/* Title */}
-            <h1 className="mb-6 text-6xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-7xl">
-              <span className="bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent">
-                Family
-              </span>{" "}
-              <span className="text-gray-900 dark:text-white">Toolbox</span>
-            </h1>
-
-            {/* Subtitle */}
-            <p className="mx-auto mb-8 max-w-2xl text-xl text-gray-600 dark:text-gray-300 leading-relaxed">
-              Ihre private AI-gestützte Toolsammlung für die Familie.
-              <br />
-              <span className="text-lg text-gray-500 dark:text-gray-400">
-                Intelligent, sicher und nur für Sie.
-              </span>
-            </p>
-
-            {/* Login Card */}
-            <div className="mx-auto max-w-md">
-              <div className="rounded-2xl border border-gray-200 bg-white/80 backdrop-blur-sm p-8 shadow-xl shadow-gray-900/5 dark:border-gray-700 dark:bg-gray-800/80 dark:shadow-black/20">
-                <div className="mb-6 flex justify-center">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
-                    <Lock className="h-6 w-6 text-red-600 dark:text-red-400" />
-                  </div>
-                </div>
-                
-                <h3 className="mb-2 text-xl font-semibold text-gray-900 dark:text-white">
-                  Familien-Zugang
-                </h3>
-                <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
-                  Melden Sie sich mit Ihrem Google-Konto an
-                </p>
-                
-                <Link href="/auth/signin">
-                  <Button 
-                    size="lg" 
-                    className="w-full bg-gradient-to-r from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 text-white shadow-lg shadow-red-500/25 hover:shadow-red-500/40 transition-all duration-200"
-                  >
-                    <span className="mr-2">🔐</span>
-                    Anmelden
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
-                </Link>
-              </div>
-            </div>
-
-            {/* Security Notice */}
-            <div className="mt-8">
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                🔒 Nur für autorisierte Familienmitglieder • Sichere Anmeldung mit Google
-              </p>
+    <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 dark:from-gray-900 dark:to-gray-800">
+      <div className="container mx-auto px-4 py-16 sm:px-6 lg:px-8">
+        {/* Hero Section */}
+        <div className="text-center">
+          <div className="flex justify-center mb-8">
+            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-r from-red-500 to-red-700 shadow-lg">
+              <Wrench className="h-10 w-10 text-white" />
             </div>
           </div>
+          
+          <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl">
+            Family <span className="bg-gradient-to-r from-red-500 to-red-700 bg-clip-text text-transparent">Toolbox</span>
+          </h1>
+          
+          <p className="mt-6 text-lg leading-8 text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+            KI-gestützte Tools für den Familienalltag. Automatisierung, Organisation und intelligente Lösungen - 
+            alles in einer sicheren Umgebung für Ihre Familie.
+          </p>
+
+          <div className="mt-10 flex items-center justify-center gap-x-6">
+            {session ? (
+              <Link href="/dashboard">
+                <Button size="lg" className="bg-gradient-to-r from-red-500 to-red-700 hover:from-red-600 hover:to-red-800">
+                  Zum Dashboard
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/auth/signin">
+                <Button size="lg" className="bg-gradient-to-r from-red-500 to-red-700 hover:from-red-600 hover:to-red-800">
+                  Anmelden
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            )}
+            <Link href="/tools">
+              <Button variant="outline" size="lg">
+                Tools ansehen
+              </Button>
+            </Link>
+          </div>
         </div>
-      </section>
-    </main>
+
+        {/* Features Grid */}
+        <div className="mt-20 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-gray-800 p-8 shadow-sm ring-1 ring-gray-200 dark:ring-gray-700">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-100 dark:bg-red-900/20">
+              <Wrench className="h-6 w-6 text-red-600 dark:text-red-400" />
+            </div>
+            <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">Intelligente Tools</h3>
+            <p className="mt-2 text-gray-600 dark:text-gray-300">
+              KI-gestützte Lösungen für alltägliche Herausforderungen - von Dokumentenanalyse bis Automatisierung.
+            </p>
+          </div>
+
+          <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-gray-800 p-8 shadow-sm ring-1 ring-gray-200 dark:ring-gray-700">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-100 dark:bg-red-900/20">
+              <Users className="h-6 w-6 text-red-600 dark:text-red-400" />
+            </div>
+            <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">Für Familien</h3>
+            <p className="mt-2 text-gray-600 dark:text-gray-300">
+              Speziell entwickelt für Familienbedürfnisse - sicher, benutzerfreundlich und effektiv.
+            </p>
+          </div>
+
+          <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-gray-800 p-8 shadow-sm ring-1 ring-gray-200 dark:ring-gray-700">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-100 dark:bg-red-900/20">
+              <Lock className="h-6 w-6 text-red-600 dark:text-red-400" />
+            </div>
+            <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">Sicher & Privat</h3>
+            <p className="mt-2 text-gray-600 dark:text-gray-300">
+              Ihre Daten bleiben sicher - mit modernster Verschlüsselung und Datenschutz-Standards.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function Home() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 dark:from-gray-900 dark:to-gray-800">
+        <div className="container mx-auto px-4 py-16 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <SessionProvider>
+      <HomeContent />
+    </SessionProvider>
   );
 }
