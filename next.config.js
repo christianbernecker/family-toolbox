@@ -20,12 +20,31 @@ const nextConfig = {
   },
   experimental: {
     serverComponentsExternalPackages: ['@anthropic-ai/sdk'],
+    // Disable Prerendering to avoid useContext errors
+    esmExternals: 'loose',
   },
-  // Deaktiviere Static Generation komplett
-  output: 'standalone',
+  // Disable Static Generation and use Server-Side Rendering
   trailingSlash: false,
   generateBuildId: async () => {
     return 'build-' + Date.now();
+  },
+  // Export settings to avoid static generation
+  exportPathMap: function () {
+    return {};
+  },
+  // Force dynamic rendering
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+        ],
+      },
+    ];
   },
   serverRuntimeConfig: {
     SUPABASE_URL: process.env.SUPABASE_URL,
