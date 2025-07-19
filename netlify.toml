@@ -2,9 +2,6 @@
   command = "npm run build || echo 'Build had errors but continuing deployment'"
   publish = ".next"
 
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
-
 # Production-Kontext (wird für die Haupt-URL family-toolbox.netlify.app als STAGE verwendet)
 [context.production]
   command = "npm run build || echo 'Build had errors but continuing deployment'"
