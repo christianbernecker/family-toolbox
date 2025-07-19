@@ -53,12 +53,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, provider, imap_host, imap_port, username, password, priority_weight } = body;
+    const { name, email, provider, imap_host, imap_port, username, password, priority_weight } = body;
 
     // Validierung
-    if (!email || !provider || !imap_host || !imap_port || !username || !password) {
+    if (!email || !provider || !imap_host || !imap_port || !password) {
       return NextResponse.json(
-        { error: 'Missing required fields: email, provider, imap_host, imap_port, username, password' },
+        { error: 'Missing required fields: email, provider, imap_host, imap_port, password' },
         { status: 400 }
       );
     }
@@ -89,11 +89,12 @@ export async function POST(request: NextRequest) {
     const { data: account, error } = await supabase
       .from('email_accounts')
       .insert({
+        name: name || email,
         email,
         provider,
         imap_host,
         imap_port: parseInt(imap_port),
-        username,
+        username: username || email,
         password_encrypted,
         priority_weight: priority_weight || 1,
         is_active: true
@@ -140,7 +141,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, email, provider, imap_host, imap_port, username, password, priority_weight, is_active } = body;
+    const { id, name, email, provider, imap_host, imap_port, username, password, priority_weight, is_active } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -154,6 +155,7 @@ export async function PUT(request: NextRequest) {
     // Update-Objekt erstellen
     const updateData: Partial<EmailAccount> = {};
     
+    if (name !== undefined) updateData.name = name;
     if (email !== undefined) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
@@ -232,22 +234,22 @@ export async function PUT(request: NextRequest) {
 // DELETE: E-Mail-Account löschen
 export async function DELETE(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
+    const body = await request.json();
+    const { accountId } = body;
 
-    if (!id) {
+    if (!accountId) {
       return NextResponse.json(
         { error: 'Account ID is required' },
         { status: 400 }
       );
     }
 
-    await logger.info('email-accounts-api', 'Deleting email account', { accountId: id });
+    await logger.info('email-accounts-api', 'Deleting email account', { accountId });
 
     const { error } = await supabase
       .from('email_accounts')
       .delete()
-      .eq('id', id);
+      .eq('id', accountId);
 
     if (error) {
       if (error.code === 'PGRST116') { // Not found
@@ -259,7 +261,7 @@ export async function DELETE(request: NextRequest) {
       throw error;
     }
 
-    await logger.info('email-accounts-api', 'Successfully deleted email account', { accountId: id });
+    await logger.info('email-accounts-api', 'Successfully deleted email account', { accountId });
 
     return NextResponse.json({
       success: true,

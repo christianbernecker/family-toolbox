@@ -1,5 +1,5 @@
-// E-Mail Summaries API Route
-// Verwaltung von E-Mail-Zusammenfassungen
+// Daily Summaries API Route für Email Agent
+// Abrufen der täglichen E-Mail-Zusammenfassungen
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
@@ -12,48 +12,34 @@ const supabase = createClient(
 
 const logger = LogService.getInstance();
 
-// GET: Zusammenfassungen abrufen
+// GET: Tägliche Zusammenfassungen abrufen
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const accountId = searchParams.get('accountId');
-    const date = searchParams.get('date');
-
-    await logger.info('email-summaries-api', 'Fetching summaries', { limit, accountId, date });
-
-    let query = supabase
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const offset = parseInt(searchParams.get('offset') || '0');
+    
+    await logger.info('summaries-api', 'Fetching daily summaries', { limit, offset });
+    
+    const { data: summaries, error } = await supabase
       .from('daily_summaries')
-      .select(`
-        *,
-        email_accounts!inner(email, provider)
-      `)
-      .order('date', { ascending: false })
-      .limit(limit);
-
-    if (accountId) {
-      query = query.eq('account_id', accountId);
-    }
-
-    if (date) {
-      query = query.eq('date', date);
-    }
-
-    const { data: summaries, error } = await query;
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (error) {
       throw error;
     }
 
-    await logger.info('email-summaries-api', `Retrieved ${summaries?.length || 0} summaries`);
-
+    await logger.info('summaries-api', `Retrieved ${summaries?.length || 0} summaries`);
+    
     return NextResponse.json({
       success: true,
       summaries: summaries || []
     });
 
   } catch (error) {
-    await logger.error('email-summaries-api', 'Failed to fetch summaries', {
+    await logger.error('summaries-api', 'Failed to fetch summaries', {
       error: error instanceof Error ? error.message : 'Unknown error'
     });
 

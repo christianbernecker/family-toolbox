@@ -1,10 +1,9 @@
-// E-Mail Agent Feedback API Route
-// Verwaltung von Zusammenfassungs- und Relevanz-Feedback
+// Email Agent Feedback API Route
+// Sammlung von Benutzer-Feedback für Machine Learning
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { LogService } from '../../../../lib/services/log-service';
-import { FeedbackSubmission } from '../../../../types/email-agent';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,92 +12,61 @@ const supabase = createClient(
 
 const logger = LogService.getInstance();
 
-// GET: Feedback abrufen
-export async function GET(request: NextRequest) {
+// POST: Feedback hinzufügen
+export async function POST(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type'); // 'summary' oder 'relevance'
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const userId = searchParams.get('userId');
+    const body = await request.json();
+    const { email_id, feedback_type, relevance_score, category_feedback, summary_quality, notes } = body;
 
-    await logger.info('email-feedback-api', 'Fetching feedback', { type, limit, userId });
-
-    let query;
-    
-    if (type === 'summary') {
-      query = supabase
-        .from('summary_feedback')
-        .select(`
-          *,
-          daily_summaries!inner(date, summary_text, account_id)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(limit);
-    } else if (type === 'relevance') {
-      query = supabase
-        .from('relevance_feedback')
-        .select(`
-          *,
-          emails!inner(subject, sender_email, relevance_score)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(limit);
-    } else {
-      // Beide Typen abrufen
-      const [summaryFeedback, relevanceFeedback] = await Promise.all([
-        supabase
-          .from('summary_feedback')
-          .select(`
-            *,
-            daily_summaries!inner(date, summary_text, account_id)
-          `)
-          .order('created_at', { ascending: false })
-          .limit(limit / 2),
-        supabase
-          .from('relevance_feedback')
-          .select(`
-            *,
-            emails!inner(subject, sender_email, relevance_score)
-          `)
-          .order('created_at', { ascending: false })
-          .limit(limit / 2)
-      ]);
-
-      if (summaryFeedback.error) throw summaryFeedback.error;
-      if (relevanceFeedback.error) throw relevanceFeedback.error;
-
-      await logger.info('email-feedback-api', 'Retrieved feedback', {
-        summaryCount: summaryFeedback.data?.length || 0,
-        relevanceCount: relevanceFeedback.data?.length || 0
-      });
-
-      return NextResponse.json({
-        success: true,
-        summary: summaryFeedback.data || [],
-        relevance: relevanceFeedback.data || []
-      });
+    // Validierung
+    if (!email_id || !feedback_type) {
+      return NextResponse.json(
+        { error: 'Missing required fields: email_id, feedback_type' },
+        { status: 400 }
+      );
     }
 
-    // User-spezifisches Feedback filtern
-    if (userId) {
-      query = query.eq('user_id', userId);
+    // Feedback-Typ validieren
+    const validFeedbackTypes = ['relevance', 'category', 'summary', 'general'];
+    if (!validFeedbackTypes.includes(feedback_type)) {
+      return NextResponse.json(
+        { error: 'Invalid feedback_type. Valid types: relevance, category, summary, general' },
+        { status: 400 }
+      );
     }
 
-    const { data: feedback, error } = await query;
+    await logger.info('feedback-api', 'Creating feedback', { email_id, feedback_type });
+
+    const { data: feedback, error } = await supabase
+      .from('user_feedback')
+      .insert({
+        email_id,
+        feedback_type,
+        relevance_score,
+        category_feedback,
+        summary_quality,
+        notes,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
 
     if (error) {
       throw error;
     }
 
-    await logger.info('email-feedback-api', `Retrieved ${feedback?.length || 0} feedback entries`, { type });
+    await logger.info('feedback-api', 'Successfully created feedback', { 
+      feedbackId: feedback.id,
+      email_id 
+    });
 
     return NextResponse.json({
       success: true,
-      feedback: feedback || []
+      feedback
     });
 
   } catch (error) {
-    await logger.error('email-feedback-api', 'Failed to fetch feedback', {
+    await logger.error('feedback-api', 'Failed to create feedback', {
       error: error instanceof Error ? error.message : 'Unknown error'
     });
 
@@ -112,128 +80,45 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST: Neues Feedback erstellen
-export async function POST(request: NextRequest) {
+// GET: Feedback abrufen
+export async function GET(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { type, targetId, rating, feedbackText, userId }: FeedbackSubmission = body;
-
-    // Validierung
-    if (!type || !targetId || !rating || !userId) {
-      return NextResponse.json(
-        { error: 'Missing required fields: type, targetId, rating, userId' },
-        { status: 400 }
-      );
+    const { searchParams } = new URL(request.url);
+    const limit = parseInt(searchParams.get('limit') || '50');
+    const email_id = searchParams.get('email_id');
+    const feedback_type = searchParams.get('feedback_type');
+    
+    await logger.info('feedback-api', 'Fetching feedback', { limit, email_id, feedback_type });
+    
+    let query = supabase
+      .from('user_feedback')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    
+    if (email_id) {
+      query = query.eq('email_id', email_id);
     }
-
-    if (!['summary', 'relevance'].includes(type)) {
-      return NextResponse.json(
-        { error: 'Invalid feedback type. Valid types: summary, relevance' },
-        { status: 400 }
-      );
+    
+    if (feedback_type) {
+      query = query.eq('feedback_type', feedback_type);
     }
-
-    // Rating validieren
-    if (type === 'summary' && (rating < 1 || rating > 6)) {
-      return NextResponse.json(
-        { error: 'Summary rating must be between 1 and 6' },
-        { status: 400 }
-      );
-    }
-
-    if (type === 'relevance' && (rating < 1 || rating > 10)) {
-      return NextResponse.json(
-        { error: 'Relevance rating must be between 1 and 10' },
-        { status: 400 }
-      );
-    }
-
-    await logger.info('email-feedback-api', 'Creating new feedback', { 
-      type, 
-      targetId, 
-      rating, 
-      userId 
-    });
-
-    let feedback;
-    let error;
-
-    if (type === 'summary') {
-      // Prüfen ob Zusammenfassung existiert
-      const { data: summary } = await supabase
-        .from('daily_summaries')
-        .select('id')
-        .eq('id', targetId)
-        .single();
-
-      if (!summary) {
-        return NextResponse.json(
-          { error: 'Summary not found' },
-          { status: 404 }
-        );
-      }
-
-      const { data, error: insertError } = await supabase
-        .from('summary_feedback')
-        .insert({
-          summary_id: targetId,
-          user_id: userId,
-          rating,
-          feedback_text: feedbackText
-        })
-        .select()
-        .single();
-
-      feedback = data;
-      error = insertError;
-
-    } else {
-      // Prüfen ob E-Mail existiert
-      const { data: email } = await supabase
-        .from('emails')
-        .select('id')
-        .eq('id', targetId)
-        .single();
-
-      if (!email) {
-        return NextResponse.json(
-          { error: 'Email not found' },
-          { status: 404 }
-        );
-      }
-
-      const { data, error: insertError } = await supabase
-        .from('relevance_feedback')
-        .insert({
-          email_id: targetId,
-          user_id: userId,
-          manual_relevance_score: rating,
-          feedback_notes: feedbackText
-        })
-        .select()
-        .single();
-
-      feedback = data;
-      error = insertError;
-    }
+    
+    const { data: feedback, error } = await query;
 
     if (error) {
       throw error;
     }
 
-    await logger.info('email-feedback-api', 'Successfully created feedback', { 
-      feedbackId: feedback.id,
-      type,
-      rating 
-    });
-
+    await logger.info('feedback-api', `Retrieved ${feedback?.length || 0} feedback entries`);
+    
     return NextResponse.json({
       success: true,
-      feedback
+      feedback: feedback || []
     });
 
   } catch (error) {
-    await logger.error('email-feedback-api', 'Failed to create feedback', {
+    await logger.error('feedback-api', 'Failed to fetch feedback', {
       error: error instanceof Error ? error.message : 'Unknown error'
     });
 

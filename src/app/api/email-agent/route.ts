@@ -18,10 +18,10 @@ export async function POST(request: NextRequest) {
     const { action, accountId } = body;
     
     // Validierung der Aktion
-    const validActions = ['fetch', 'process', 'learn', 'full-cycle'];
+    const validActions = ['fetch', 'process', 'learn', 'full-cycle', 'start'];
     if (!validActions.includes(action)) {
       return NextResponse.json(
-        { error: 'Invalid action. Valid actions: fetch, process, learn, full-cycle' },
+        { error: 'Invalid action. Valid actions: fetch, process, learn, full-cycle, start' },
         { status: 400 }
       );
     }
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     const results: any = {};
     
     // Agent 1: Mail Manager (E-Mails abrufen)
-    if (action === 'fetch' || action === 'full-cycle') {
+    if (action === 'fetch' || action === 'full-cycle' || action === 'start') {
       try {
         await logger.info('email-agent-api', 'Starting Mail Manager (Agent 1)');
         const mailManager = MailManagerService.getInstance();
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Agent 2: Summary Generator (E-Mails verarbeiten)
-    if (action === 'process' || action === 'full-cycle') {
+    if (action === 'process' || action === 'full-cycle' || action === 'start') {
       try {
         await logger.info('email-agent-api', 'Starting Summary Generator (Agent 2)');
         const summaryGenerator = SummaryGeneratorService.getInstance();
@@ -131,7 +131,8 @@ export async function POST(request: NextRequest) {
       success: true,
       action,
       processingTime,
-      results
+      results,
+      isRunning: true
     });
     
   } catch (error) {
@@ -146,7 +147,8 @@ export async function POST(request: NextRequest) {
       { 
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
-        processingTime
+        processingTime,
+        isRunning: false
       },
       { status: 500 }
     );
@@ -161,6 +163,7 @@ export async function GET(request: NextRequest) {
     // Status-Informationen sammeln
     const status = {
       timestamp: new Date().toISOString(),
+      isRunning: false, // Default false, set to true during processing
       agents: {
         mailManager: 'available',
         summaryGenerator: 'available',
@@ -175,14 +178,15 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json({
       success: true,
-      status
+      ...status
     });
     
   } catch (error) {
     return NextResponse.json(
       { 
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
+        isRunning: false
       },
       { status: 500 }
     );
