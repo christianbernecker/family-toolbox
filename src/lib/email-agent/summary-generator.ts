@@ -4,7 +4,6 @@
 import { createClient } from '@supabase/supabase-js';
 import Anthropic from '@anthropic-ai/sdk';
 import { LogService } from '../services/log-service';
-import { EncryptionService } from '../services/encryption';
 import { 
   Email, 
   DailySummary, 
@@ -27,10 +26,12 @@ export class SummaryGeneratorService {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
     this.logger = LogService.getInstance();
-    // API Key wird dynamisch geladen
+    this.anthropicClient = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY!
+    });
   }
 
-  static getInstance(): SummaryGeneratorService {
+  public static getInstance(): SummaryGeneratorService {
     if (!SummaryGeneratorService.instance) {
       SummaryGeneratorService.instance = new SummaryGeneratorService();
     }
@@ -38,169 +39,159 @@ export class SummaryGeneratorService {
   }
 
   /**
-   * API Key dynamisch laden und Client initialisieren
-   */
-  private async initializeClient(userId?: string): Promise<void> {
-    try {
-      // Versuche zuerst, API Key aus user_secrets zu laden (neues System)
-      if (userId) {
-        const apiKeys = await this.getDecryptedApiKeysFromUserSecrets(userId);
-        
-        if (apiKeys.anthropic_api_key) {
-          this.anthropicClient = new Anthropic({
-            apiKey: apiKeys.anthropic_api_key,
-          });
-          await this.logger.info('summary-generator', 'Anthropic client initialized with user API key from user_secrets');
-          return;
-        }
-      }
-      
-      // Fallback auf Environment Variable
-      if (process.env.ANTHROPIC_API_KEY) {
-        this.anthropicClient = new Anthropic({
-          apiKey: process.env.ANTHROPIC_API_KEY
-        });
-        await this.logger.info('summary-generator', 'Anthropic client initialized with environment API key');
-      } else {
-        throw new Error('No Anthropic API key available');
-      }
-    } catch (error) {
-      await this.logger.error('summary-generator', 'Failed to initialize Anthropic client', error);
-      throw error;
-    }
-  }
-
-  /**
-   * API Keys aus user_secrets entschlüsseln (neues System)
-   */
-  private async getDecryptedApiKeysFromUserSecrets(userId: string): Promise<{ anthropic_api_key?: string; openai_api_key?: string }> {
-    try {
-      const { data, error } = await this.supabase
-        .from('user_secrets')
-        .select('anthropic_api_key, openai_api_key')
-        .eq('user_id', userId)
-        .single();
-
-      if (error || !data) {
-        await this.logger.warn('summary-generator', 'No API keys found in user_secrets for user', { userId });
-        return {};
-      }
-
-      const result: { anthropic_api_key?: string; openai_api_key?: string } = {};
-
-      // Entschlüsseln der Keys mit EncryptionService
-      if (data.anthropic_api_key) {
-        try {
-          result.anthropic_api_key = EncryptionService.decrypt(data.anthropic_api_key);
-        } catch (error) {
-          await this.logger.error('summary-generator', 'Failed to decrypt Anthropic key', { error });
-        }
-      }
-
-      if (data.openai_api_key) {
-        try {
-          result.openai_api_key = EncryptionService.decrypt(data.openai_api_key);
-        } catch (error) {
-          await this.logger.error('summary-generator', 'Failed to decrypt OpenAI key', { error });
-        }
-      }
-
-      return result;
-    } catch (error) {
-      await this.logger.error('summary-generator', 'Error loading API keys from user_secrets', { error, userId });
-      return {};
-    }
-  }
-
-  /**
    * Hauptfunktion: Neue E-Mails verarbeiten und Zusammenfassungen erstellen
    */
   async processNewEmails(): Promise<void> {
+    const startTime = Date.now();
+    
     try {
-      await this.logger.info('summary-generator', 'Starting new email processing');
-
-      // Hole alle User mit neuen E-Mails
-      const usersWithNewEmails = await this.getUsersWithNewEmails();
+      await this.logger.info('summary-generator', 'Starting processing of new emails');
       
-      for (const userId of usersWithNewEmails) {
-        await this.processEmailsForUser(userId);
+      // Alle unverarbeiteten E-Mails abrufen
+      const { data: unprocessedEmails, error } = await this.supabase
+        .from('emails')
+        .select(`
+          *,
+          email_accounts!inner(email, priority_weight)
+        `)
+        .eq('is_processed', false)
+        .order('received_at', { ascending: true });
+
+      if (error) {
+        throw new Error(`Failed to fetch unprocessed emails: ${error.message}`);
       }
 
-      await this.logger.info('summary-generator', 'Email processing completed');
+      if (!unprocessedEmails || unprocessedEmails.length === 0) {
+        await this.logger.info('summary-generator', 'No unprocessed emails found');
+        return;
+      }
+
+      await this.logger.info('summary-generator', `Found ${unprocessedEmails.length} unprocessed emails`);
+
+      // E-Mails nach Accounts gruppieren
+      const emailsByAccount = this.groupEmailsByAccount(unprocessedEmails);
+      
+      // Parallel alle Accounts verarbeiten
+      const promises = Object.entries(emailsByAccount).map(([accountId, emails]) => 
+        this.processAccountEmails(accountId, emails)
+      );
+      
+      await Promise.allSettled(promises);
+
+      const processingTime = Date.now() - startTime;
+      await this.logger.info('summary-generator', 'Completed processing new emails', {
+        totalEmails: unprocessedEmails.length,
+        processingTime
+      });
+
     } catch (error) {
-      await this.logger.error('summary-generator', 'Error in processNewEmails', error);
+      const processingTime = Date.now() - startTime;
+      await this.logger.error('summary-generator', 'Failed to process new emails', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        processingTime
+      });
       throw error;
     }
   }
 
-  private async getUsersWithNewEmails(): Promise<string[]> {
-    const { data } = await this.supabase
-      .from('emails')
-      .select('DISTINCT(user_id)')
-      .eq('is_processed', false);
-
-    return data?.map((row: any) => row.user_id) || [];
-  }
-
-  private async processEmailsForUser(userId: string): Promise<void> {
-    try {
-      // Client für diesen User initialisieren
-      await this.initializeClient(userId);
-
-      // Hole unverarbeitete E-Mails für diesen User
-      const { data: emails } = await this.supabase
-        .from('emails')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('is_processed', false)
-        .order('received_at', { ascending: false });
-
-      if (!emails || emails.length === 0) {
-        await this.logger.info('summary-generator', 'No new emails for user', { userId });
-        return;
+  /**
+   * E-Mails nach Accounts gruppieren
+   */
+  private groupEmailsByAccount(emails: any[]): Record<string, any[]> {
+    const grouped: Record<string, any[]> = {};
+    
+    for (const email of emails) {
+      const accountId = email.account_id;
+      if (!grouped[accountId]) {
+        grouped[accountId] = [];
       }
-
-      await this.logger.info('summary-generator', `Processing ${emails.length} emails for user`, { userId });
-
-      for (const email of emails) {
-        await this.processEmail(email);
-      }
-
-    } catch (error) {
-      await this.logger.error('summary-generator', 'Error processing emails for user', { error, userId });
+      grouped[accountId].push(email);
     }
+    
+    return grouped;
   }
 
-  private async processEmail(email: any): Promise<void> {
-    try {
-      // Relevanz-Bewertung
-      const relevanceResult = await this.evaluateEmailRelevance(email);
-      
-      // E-Mail mit Bewertung aktualisieren
-      await this.supabase
-        .from('emails')
-        .update({
-          relevance_score: relevanceResult.score,
-          relevance_confidence: relevanceResult.confidence,
-          category: relevanceResult.category,
-          is_processed: true
-        })
-        .eq('id', email.id);
+  /**
+   * E-Mails eines Accounts verarbeiten
+   */
+  private async processAccountEmails(accountId: string, emails: any[]): Promise<void> {
+    const startTime = Date.now();
+    let processedCount = 0;
+    let errors = 0;
 
-      await this.logger.info('summary-generator', 'Email processed successfully', {
-        emailId: email.id,
-        relevanceScore: relevanceResult.score,
-        category: relevanceResult.category
+    try {
+      await this.logger.info('summary-generator', `Processing ${emails.length} emails for account ${accountId}`);
+
+      // E-Mails der letzten 6 Stunden für Zusammenfassung
+      const sixHoursAgo = new Date();
+      sixHoursAgo.setHours(sixHoursAgo.getHours() - 6);
+
+      const recentEmails = emails.filter(email => 
+        new Date(email.received_at) >= sixHoursAgo
+      );
+
+      // Jede E-Mail einzeln verarbeiten (Relevanz-Bewertung)
+      for (const email of emails) {
+        try {
+          await this.evaluateEmailRelevance(email);
+          processedCount++;
+        } catch (error) {
+          errors++;
+          await this.logger.error('summary-generator', `Failed to evaluate email: ${email.id}`, {
+            error: error instanceof Error ? error.message : 'Unknown error',
+            emailId: email.id
+          });
+        }
+      }
+
+      // Zusammenfassung für die letzten 6 Stunden erstellen
+      if (recentEmails.length > 0) {
+        try {
+          await this.generateDailySummary(accountId, recentEmails);
+        } catch (error) {
+          await this.logger.error('summary-generator', `Failed to generate summary for account ${accountId}`, {
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
+      }
+
+      // Verarbeitungs-Log speichern
+      const processingTime = Date.now() - startTime;
+      await this.saveProcessingLog({
+        account_id: accountId,
+        process_type: 'relevance',
+        status: errors > 0 ? 'partial' : 'success',
+        emails_processed: emails.length,
+        emails_new: processedCount,
+        emails_errors: errors,
+        processing_time_ms: processingTime
+      });
+
+      await this.logger.info('summary-generator', `Completed processing account ${accountId}`, {
+        totalEmails: emails.length,
+        processedCount,
+        errors,
+        processingTime
       });
 
     } catch (error) {
-      await this.logger.error('summary-generator', 'Error processing email', { error, emailId: email.id });
+      const processingTime = Date.now() - startTime;
       
-      // Markiere als verarbeitet, auch wenn Fehler
-      await this.supabase
-        .from('emails')
-        .update({ is_processed: true })
-        .eq('id', email.id);
+      await this.saveProcessingLog({
+        account_id: accountId,
+        process_type: 'relevance',
+        status: 'error',
+        emails_processed: 0,
+        emails_new: 0,
+        emails_errors: 1,
+        processing_time_ms: processingTime,
+        error_message: error instanceof Error ? error.message : 'Unknown error'
+      });
+
+      await this.logger.error('summary-generator', `Failed to process account ${accountId}`, {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        processingTime
+      });
     }
   }
 
@@ -211,11 +202,6 @@ export class SummaryGeneratorService {
     const startTime = Date.now();
 
     try {
-      // Client initialisieren falls noch nicht geschehen
-      if (!this.anthropicClient) {
-        await this.initializeClient();
-      }
-      
       // Aktiven Prompt für Relevanz-Bewertung abrufen
       const prompt = await this.getActivePrompt('relevance');
       
@@ -227,207 +213,295 @@ export class SummaryGeneratorService {
       
       // Claude Haiku für schnelle Bewertung verwenden
       const response = await this.anthropicClient.messages.create({
-        model: "claude-3-haiku-20240307",
-        max_tokens: 200,
+        model: 'claude-3-haiku-20240307',
+        max_tokens: 100,
         temperature: 0.1,
-        messages: [{ role: "user", content: aiPrompt }]
+        messages: [
+          {
+            role: 'user',
+            content: aiPrompt
+          }
+        ]
       });
 
       const result = this.parseRelevanceResponse(response.content[0].text);
       
-      // Performance-Logging
-      await this.logEmailProcessing(email.id, 'relevance_evaluation', Date.now() - startTime, true);
+      // E-Mail in Datenbank aktualisieren
+      await this.updateEmailRelevance(email.id, result);
       
-      return result;
+      const processingTime = Date.now() - startTime;
+      
+      await this.logger.info('summary-generator', `Evaluated email relevance: ${email.id}`, {
+        emailId: email.id,
+        relevanceScore: result.relevanceScore,
+        category: result.category,
+        processingTime
+      });
+
+      return {
+        emailId: email.id,
+        relevanceScore: result.relevanceScore,
+        confidence: result.confidence,
+        category: result.category,
+        processingTime
+      };
 
     } catch (error) {
-      await this.logger.error('summary-generator', 'Error evaluating email relevance', { error, emailId: email.id });
-      await this.logEmailProcessing(email.id, 'relevance_evaluation', Date.now() - startTime, false, error);
-      
-      // Fallback-Bewertung
-      return {
-        score: 5,
-        confidence: 0.1,
-        category: 'unknown',
-        reasoning: 'Error during AI evaluation'
-      };
+      const processingTime = Date.now() - startTime;
+      await this.logger.error('summary-generator', `Failed to evaluate email relevance: ${email.id}`, {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        processingTime
+      });
+      throw error;
     }
   }
 
   /**
-   * Tägliche Zusammenfassung generieren
+   * Tägliche Zusammenfassung erstellen
    */
-  async generateDailySummary(userId: string, date: string): Promise<DailySummary | null> {
-    try {
-      // Client für diesen User initialisieren
-      await this.initializeClient(userId);
-      
-      // Relevante E-Mails für den Tag abrufen
-      const { data: relevantEmails } = await this.supabase
-        .from('emails')
-        .select('*')
-        .eq('user_id', userId)
-        .gte('received_at', `${date}T00:00:00Z`)
-        .lt('received_at', `${date}T23:59:59Z`)
-        .gte('relevance_score', 6)
-        .order('relevance_score', { ascending: false });
+  private async generateDailySummary(accountId: string, emails: any[]): Promise<SummaryGenerationResult> {
+    const startTime = Date.now();
 
-      if (!relevantEmails || relevantEmails.length === 0) {
-        await this.logger.info('summary-generator', 'No relevant emails for daily summary', { userId, date });
-        return null;
+    try {
+      // Aktiven Prompt für Zusammenfassung abrufen
+      const prompt = await this.getActivePrompt('summary');
+      
+      // Relevante E-Mails filtern (Score >= 5)
+      const relevantEmails = emails.filter(email => 
+        email.relevance_score && email.relevance_score >= 5
+      );
+      
+      // Hochprioritäts-E-Mails zählen
+      const highPriorityEmails = emails.filter(email => 
+        email.relevance_score && email.relevance_score >= 8
+      ).length;
+
+      if (relevantEmails.length === 0) {
+        await this.logger.info('summary-generator', `No relevant emails for summary in account ${accountId}`);
+        return {
+          summary: {} as DailySummary,
+          emails: [],
+          processingTime: Date.now() - startTime,
+          tokensUsed: 0
+        };
       }
 
-      // Zusammenfassung generieren
-      const summaryText = await this.generateSummaryText(relevantEmails);
+      // AI-Prompt für Zusammenfassung erstellen
+      const aiPrompt = this.createSummaryPrompt(relevantEmails, prompt);
       
-      // In Datenbank speichern
-      const { data: summary } = await this.supabase
+      // Claude Sonnet für detaillierte Zusammenfassung verwenden
+      const response = await this.anthropicClient.messages.create({
+        model: 'claude-3-sonnet-20240229',
+        max_tokens: 500,
+        temperature: 0.3,
+        messages: [
+          {
+            role: 'user',
+            content: aiPrompt
+          }
+        ]
+      });
+
+      const summaryText = response.content[0].text;
+      const tokensUsed = response.usage?.input_tokens + response.usage?.output_tokens || 0;
+      
+      // Zeitbereich für Zusammenfassung
+      const timeRangeStart = new Date(Math.min(...emails.map(e => new Date(e.received_at).getTime())));
+      const timeRangeEnd = new Date(Math.max(...emails.map(e => new Date(e.received_at).getTime())));
+      
+      // Zusammenfassung in Datenbank speichern
+      const summary: Partial<DailySummary> = {
+        date: new Date().toISOString().split('T')[0],
+        account_id: accountId,
+        time_range_start: timeRangeStart.toISOString(),
+        time_range_end: timeRangeEnd.toISOString(),
+        summary_text: summaryText,
+        total_emails: emails.length,
+        relevant_emails: relevantEmails.length,
+        high_priority_emails: highPriorityEmails,
+        prompt_version: prompt.version_name,
+        tokens_used: tokensUsed,
+        processing_time_ms: Date.now() - startTime
+      };
+
+      const { data: savedSummary, error } = await this.supabase
         .from('daily_summaries')
-        .insert({
-          user_id: userId,
-          date,
-          summary_text: summaryText,
-          total_emails: relevantEmails.length,
-          high_priority_count: relevantEmails.filter(e => e.relevance_score >= 8).length,
-          prompt_version: 'v1.0'
-        })
+        .insert(summary)
         .select()
         .single();
 
-      await this.logger.info('summary-generator', 'Daily summary generated', { userId, date, summaryId: summary.id });
+      if (error) {
+        throw error;
+      }
+
+      const processingTime = Date.now() - startTime;
       
-      return summary;
+      await this.logger.info('summary-generator', `Generated summary for account ${accountId}`, {
+        accountId,
+        totalEmails: emails.length,
+        relevantEmails: relevantEmails.length,
+        highPriorityEmails,
+        tokensUsed,
+        processingTime
+      });
+
+      return {
+        summary: savedSummary,
+        emails: relevantEmails,
+        processingTime,
+        tokensUsed
+      };
 
     } catch (error) {
-      await this.logger.error('summary-generator', 'Error generating daily summary', { error, userId, date });
-      return null;
+      const processingTime = Date.now() - startTime;
+      await this.logger.error('summary-generator', `Failed to generate summary for account ${accountId}`, {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        processingTime
+      });
+      throw error;
     }
   }
 
-  private async getActivePrompt(type: string): Promise<string> {
-    const { data } = await this.supabase
+  /**
+   * Aktiven Prompt für Agent-Typ abrufen
+   */
+  private async getActivePrompt(agentType: 'summary' | 'relevance'): Promise<PromptVersion> {
+    const { data: prompt, error } = await this.supabase
       .from('prompt_versions')
-      .select('prompt_text')
-      .eq('agent_type', type)
+      .select('*')
+      .eq('agent_type', agentType)
       .eq('is_active', true)
       .single();
 
-    return data?.prompt_text || this.getDefaultPrompt(type);
-  }
-
-  private getDefaultPrompt(type: string): string {
-    if (type === 'relevance') {
-      return `
-Bewerte die Relevanz dieser E-Mail auf einer Skala von 1-10:
-
-ABSENDER: {sender_email} ({sender_name})
-BETREFF: {subject}
-INHALT: {body_preview}
-
-Antworte nur mit JSON:
-{
-  "score": <1-10>,
-  "confidence": <0.0-1.0>,
-  "category": "<personal|system|marketing|other>",
-  "reasoning": "<kurze Begründung>"
-}
-      `;
+    if (error || !prompt) {
+      throw new Error(`No active prompt found for agent type: ${agentType}`);
     }
-    return 'Default prompt not available';
+
+    return prompt;
   }
 
-  private createRelevancePrompt(email: any, promptTemplate: string, senderPriority: any): string {
-    return promptTemplate
-      .replace('{sender_email}', email.sender_email || 'unknown')
-      .replace('{sender_name}', email.sender_name || 'unknown')
-      .replace('{subject}', email.subject || 'no subject')
-      .replace('{body_preview}', (email.body_text || '').substring(0, 300));
-  }
-
-  private parseRelevanceResponse(responseText: string): RelevanceEvaluationResult {
-    try {
-      const parsed = JSON.parse(responseText);
-      return {
-        score: parsed.score || 5,
-        confidence: parsed.confidence || 0.5,
-        category: parsed.category || 'other',
-        reasoning: parsed.reasoning || 'No reasoning provided'
-      };
-    } catch (error) {
-      return {
-        score: 5,
-        confidence: 0.1,
-        category: 'other',
-        reasoning: 'Failed to parse AI response'
-      };
-    }
-  }
-
-  private async getSenderPriority(senderEmail: string): Promise<any> {
-    const { data } = await this.supabase
+  /**
+   * Sender-Priorität abrufen
+   */
+  private async getSenderPriority(senderEmail: string): Promise<SenderPriority | null> {
+    const { data: priority } = await this.supabase
       .from('sender_priorities')
       .select('*')
       .eq('email_address', senderEmail)
       .single();
 
-    return data || { priority_weight: 1 };
+    return priority;
   }
 
-  private async generateSummaryText(emails: any[]): Promise<string> {
-    // Client initialisieren falls noch nicht geschehen
-    if (!this.anthropicClient) {
-      await this.initializeClient();
-    }
+  /**
+   * Prompt für Relevanz-Bewertung erstellen
+   */
+  private createRelevancePrompt(email: any, prompt: PromptVersion, senderPriority: SenderPriority | null): string {
+    const priorityWeight = senderPriority?.priority_weight || 1;
+    
+    return `${prompt.prompt_text}
 
-    const emailsText = emails
-      .map(email => `
-VON: ${email.sender_name} <${email.sender_email}>
-BETREFF: ${email.subject}
-RELEVANZ: ${email.relevance_score}/10
-INHALT: ${(email.body_text || '').substring(0, 200)}...
----`)
-      .join('\n');
+E-Mail Details:
+- Absender: ${email.sender_name || 'Unbekannt'} <${email.sender_email}>
+- Betreff: ${email.subject}
+- Absender-Priorität: ${priorityWeight}/10
+- Inhalt: ${email.body_text?.substring(0, 500) || 'Kein Text-Inhalt'}
 
-    const prompt = `
-Erstelle eine prägnante deutsche Zusammenfassung der wichtigsten E-Mails:
+Antworte nur mit einem JSON-Objekt im Format:
+{
+  "relevance_score": <1-10>,
+  "confidence": <0.00-1.00>,
+  "category": "<personal|system|marketing|other>",
+  "reasoning": "<kurze Begründung>"
+}`;
+  }
 
-${emailsText}
+  /**
+   * Prompt für Zusammenfassung erstellen
+   */
+  private createSummaryPrompt(emails: any[], prompt: PromptVersion): string {
+    const emailList = emails.map(email => `
+- ${email.sender_name || email.sender_email}: ${email.subject}
+  Relevanz: ${email.relevance_score}/10
+  Kategorie: ${email.category}
+  Empfangen: ${new Date(email.received_at).toLocaleString('de-DE')}
+`).join('');
 
-Anforderungen:
-- Gruppiere nach Themen
-- Hebe besonders wichtige Punkte hervor
-- Erwähne Handlungsbedarf
-- Maximal 200 Wörter
-    `;
+    return `${prompt.prompt_text}
 
+E-Mails der letzten 6 Stunden:
+${emailList}
+
+Erstelle eine strukturierte Zusammenfassung mit den wichtigsten Punkten.`;
+  }
+
+  /**
+   * AI-Antwort für Relevanz-Bewertung parsen
+   */
+  private parseRelevanceResponse(response: string): {
+    relevanceScore: number;
+    confidence: number;
+    category: string;
+  } {
     try {
-      const response = await this.anthropicClient.messages.create({
-        model: "claude-3-sonnet-20240229",
-        max_tokens: 400,
-        messages: [{ role: "user", content: prompt }]
-      });
+      // JSON aus Antwort extrahieren
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('No JSON found in response');
+      }
 
-      return response.content[0].text;
+      const parsed = JSON.parse(jsonMatch[0]);
+      
+      return {
+        relevanceScore: Math.max(1, Math.min(10, parseInt(parsed.relevance_score) || 5)),
+        confidence: Math.max(0, Math.min(1, parseFloat(parsed.confidence) || 0.5)),
+        category: parsed.category || 'other'
+      };
     } catch (error) {
-      await this.logger.error('summary-generator', 'Error generating summary text', error);
-      return `Zusammenfassung konnte nicht generiert werden. ${emails.length} E-Mails erhalten.`;
+      // Fallback-Werte bei Parsing-Fehlern
+      return {
+        relevanceScore: 5,
+        confidence: 0.5,
+        category: 'other'
+      };
     }
   }
 
-  private async logEmailProcessing(emailId: string, operation: string, duration: number, success: boolean, error?: any): Promise<void> {
+  /**
+   * E-Mail-Relevanz in Datenbank aktualisieren
+   */
+  private async updateEmailRelevance(emailId: string, result: any): Promise<void> {
+    const { error } = await this.supabase
+      .from('emails')
+      .update({
+        relevance_score: result.relevanceScore,
+        relevance_confidence: result.confidence,
+        category: result.category,
+        is_processed: true
+      })
+      .eq('id', emailId);
+
+    if (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Verarbeitungs-Log speichern
+   */
+  private async saveProcessingLog(log: Omit<EmailProcessingLog, 'id' | 'created_at'>): Promise<void> {
     try {
-      await this.supabase
+      const { error } = await this.supabase
         .from('email_processing_logs')
-        .insert({
-          email_id: emailId,
-          operation,
-          duration_ms: duration,
-          success,
-          error_message: error ? JSON.stringify(error) : null
-        });
-    } catch (logError) {
-      // Fehler beim Logging sollten den Hauptprozess nicht stoppen
-      console.error('Failed to log email processing:', logError);
+        .insert(log);
+
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      await this.logger.error('summary-generator', 'Failed to save processing log', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   }
 } 
