@@ -1,5 +1,8 @@
 'use client';
 
+// Multi-Agent Email Agent System - Complete Implementation
+// This is the full dashboard-based UI with tabs for Dashboard, Summaries, Emails, Accounts, and Logs
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
