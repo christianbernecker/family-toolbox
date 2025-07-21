@@ -21,7 +21,6 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['@anthropic-ai/sdk'],
   },
-  // NORMAL NEXT.JS DEPLOY - NO STATIC EXPORT
   trailingSlash: false,
   generateBuildId: async () => {
     return 'build-' + Date.now();

@@ -1,10 +1,9 @@
 [build]
-  command = "npm run build || echo 'Build had errors but continuing deployment'"
-  publish = ".next"
+  command = "npm run build"
 
 # Production-Kontext (wird für die Haupt-URL family-toolbox.netlify.app als STAGE verwendet)
 [context.production]
-  command = "npm run build || echo 'Build had errors but continuing deployment'"
+  command = "npm run build"
   
   [context.production.environment]
     NEXTAUTH_URL = "https://family-toolbox.netlify.app"
