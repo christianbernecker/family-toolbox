@@ -1,6 +1,7 @@
 "use client";
 
-import { useSession, signOut } from 'next-auth/react';
+import { useSessionSafe } from '@/hooks/use-session-safe';
+import { signOut } from 'next-auth/react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,7 +17,7 @@ import Link from 'next/link';
 import { LayoutDashboard, LogOut, Settings } from 'lucide-react';
 
 export function UserNav() {
-  const { data: session } = useSession();
+  const { data: session } = useSessionSafe();
 
   if (!session?.user) {
     return null;

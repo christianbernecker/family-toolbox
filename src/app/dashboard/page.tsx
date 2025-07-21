@@ -1,12 +1,14 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
+import { useSessionSafe } from '@/hooks/use-session-safe';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { data: session, status } = useSessionSafe();
 
   useEffect(() => {
     if (status === 'unauthenticated') {

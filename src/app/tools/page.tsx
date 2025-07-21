@@ -1,10 +1,12 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { FileCheck, Bot, ArrowRight, Settings, Mail } from "lucide-react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
+import { useSessionSafe } from "@/hooks/use-session-safe";
 import { useRouter } from "next/navigation";
 import { ToolManagementService, Tool } from "@/lib/services/tool-management";
 import Image from 'next/image';
@@ -44,7 +46,7 @@ function UserGreeting({ user }: { user: { name?: string | null; image?: string |
 }
 
 export default function ToolsPage() {
-  const { data: session, status } = useSession();
+  const { data: session, status } = useSessionSafe();
   const router = useRouter();
   const [tools, setTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(true);

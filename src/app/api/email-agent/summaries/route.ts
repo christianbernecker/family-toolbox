@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // Daily Summaries API Route für Email Agent
 // Abrufen der täglichen E-Mail-Zusammenfassungen
 

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // E-Mail API Route für Email Agent
 // Abrufen und Verwalten der verarbeiteten E-Mails
 

@@ -1,16 +1,18 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Loader2, Check, X } from "lucide-react";
-import { useSession } from "next-auth/react";
+import { useSessionSafe } from "@/hooks/use-session-safe";
 import { useRouter } from "next/navigation";
 import { ToolManagementService, Tool } from "@/lib/services/tool-management";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AdminToolsPage() {
-  const { data: session, status } = useSession();
+  const { data: session, status } = useSessionSafe();
   const router = useRouter();
   const { toast } = useToast();
   const [tools, setTools] = useState<Tool[]>([]);
