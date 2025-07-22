@@ -1,5 +1,7 @@
 [build]
   command = "npm run build"
+  publish = ".next"
+  functions = "netlify/functions"
 
 # Production-Kontext (wird für die Haupt-URL family-toolbox.netlify.app als STAGE verwendet)
 [context.production]
@@ -12,4 +14,21 @@
 [context.future-production]
   # command = "npm run build"
   # [context.future-production.environment]
-  #   NEXTAUTH_URL = "https://family-toolbox.de" 
+  #   NEXTAUTH_URL = "https://family-toolbox.de"
+
+# Netlify Functions Konfiguration
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Redirects für SPA-Routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  conditions = {Role = ["admin"]}
+
+# API-Proxying
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200 
